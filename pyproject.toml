@@ -1,0 +1,16 @@
+[project]
+name = "silik-messaging"
+version = "0.1.0"
+description = "Allows to connect Signal Message Application to any jupyter kernel"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "jupyter-client>=8.7.0",
+    "phonenumbers>=9.0.21",
+    "pydantic>=2.12.3",
+    "pydantic-extra-types>=2.10.6",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "silik-kernel>=1.2.2",
+]
+license = { file = "LICENSE-2.0.txt" }

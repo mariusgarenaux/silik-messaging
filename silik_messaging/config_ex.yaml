@@ -1,0 +1,6 @@
+api_url: http://localhost:8080/
+harvest_delay: .5
+kernel_name: silik
+whitelist:
+  - "signal uid or phone number"
+logging_level: DEBUG

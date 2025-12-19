@@ -1,0 +1,11 @@
+.venv
+brouillon.py
+config.yaml
+config_.yaml
+example_messages.json
+kernel-*
+**/dist
+**/**.egg-info
+**/build
+**/data_kernelspec
+octave-workspace
