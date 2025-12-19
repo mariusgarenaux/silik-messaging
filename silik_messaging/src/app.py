@@ -168,6 +168,8 @@ class SilikConversation:
 
             if msg_type == "execute_result":
                 result = msg["content"]["data"]["text/plain"]
+            elif msg_type == "display_data":
+                result = msg["content"]["data"]["text/plain"]
             elif msg_type == "error":
                 result = msg["content"]["evalue"]
             elif msg_type == "status" and msg["content"]["execution_state"] == "idle":
