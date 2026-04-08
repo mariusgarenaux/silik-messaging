@@ -9,3 +9,4 @@ kernel-*
 **/build
 **/data_kernelspec
 octave-workspace
+logs/

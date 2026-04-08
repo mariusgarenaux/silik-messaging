@@ -1,4 +1,8 @@
-# Connects to signal
+# Contains all objects needed to dialog with Signal REST API :
+#   - pydantic base model that can validate and parse the raw messages
+#   - HTTP connector
+#   - database of all messages from a Signal Account
+#   - chat objects, containing a conversation with a user
 
 import requests
 from pydantic import (
@@ -14,7 +18,7 @@ from requests import HTTPError
 import os
 from uuid import UUID
 from typing import Any
-from .utils import get_logger, config, E164NumberType
+from .utils import get_logger, config, E164NumberType, SilikUserConfig
 
 logger = get_logger(__name__)
 
@@ -222,8 +226,14 @@ class SignalConnector:
             logger.info("Could not access signal account phone number : %s", e)
             raise e
         result_json = result.json()
+        if not isinstance(result_json, list):
+            raise Exception(
+                f"Wrong body from v1/accounts : `{result_json}`. Expected list of phone numbers."
+            )
         if len(result_json) == 0:
-            raise Exception("Could not access signal account phone number")
+            raise Exception(
+                "No account was found on route v1/accounts. Please check the Signal API is running, and is initialized with at least one account."
+            )
         if len(result_json) > 1:
             logger.info("Several numbers were found on signal, using the first.")
         return result_json[0]
@@ -342,7 +352,7 @@ class SignalMessageCollection:
     def __init__(
         self,
         signal: SignalConnector,
-        whitelist: list[E164NumberType | UUID],
+        whitelist: list[SilikUserConfig],
     ):
         self.signal = signal
         self.all_messages: list[SignalMessage] = []
@@ -353,7 +363,7 @@ class SignalMessageCollection:
 
     def create_contacts(
         self,
-        whitelist: list[E164NumberType | UUID],
+        whitelist: list[SilikUserConfig],
     ) -> list[SignalContact]:
         """
         Get all contacts from the signal connector, and keep only the whitelisted
@@ -371,13 +381,15 @@ class SignalMessageCollection:
         )
         whitelisted_contacts = []
         logger.debug("Available contacts %s", contacts)
-        logger.debug("Whitelist %s", whitelist)
-        for each_contact in contacts:
-            if each_contact.number in whitelist:
-                whitelisted_contacts.append(each_contact)
-                continue
-            if each_contact.uuid in whitelist:
-                whitelisted_contacts.append(each_contact)
+        logger.info("Whitelist %s", whitelist)
+        for each_whitelisted_contact in whitelist:
+            for each_contact in contacts:
+                if each_whitelisted_contact.uuid is not None:
+                    if each_contact.uuid == each_whitelisted_contact.uuid:
+                        whitelisted_contacts.append(each_contact)
+                elif each_whitelisted_contact.phone_number is not None:
+                    if each_contact.number == each_whitelisted_contact.phone_number:
+                        whitelisted_contacts.append(each_contact)
 
         logger.info("Whitelisted contacts : %s", whitelisted_contacts)
         return whitelisted_contacts
@@ -406,8 +418,9 @@ class SignalMessageCollection:
             return
         logger.info("Harvested %s messages", len(data_messages))
         for k, each_message in enumerate(data_messages):
-            if each_message.sender_uuid not in config.whitelist:
+            if not config.check_uuid_in_whitelist(each_message.sender_uuid):
                 data_messages.pop(k)
+                logger.debug(f"Skipped message from user `{each_message.sender_uuid}`")
 
         logger.info("Keeping %s messages", len(data_messages))
         logger.debug(
@@ -424,8 +437,7 @@ class SignalMessageCollection:
         """
         for each_message in messages:
             source_uuid = each_message.sender_uuid
-
-            if source_uuid not in config.whitelist:
+            if not config.check_uuid_in_whitelist(source_uuid):
                 logger.debug(
                     "User with uuid %s is not registered in whitelist, hence skipped",
                     source_uuid,

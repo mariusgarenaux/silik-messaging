@@ -676,13 +676,14 @@ wheels = [
 
 [[package]]
 name = "silik-kernel"
-version = "1.2.2"
+version = "1.6.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipykernel" },
     { name = "jupyter-client" },
+    { name = "statikomand" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0e/5b/38fdb7ab9a3d42ded5a7df7bd8aaadfdcd72ee525d4fdbad6743aa3cb08a/silik_kernel-1.2.2.tar.gz", hash = "sha256:d9f60dc32c88965d8eabdfe2d0900bb5f26b31eadd18817a9c957764f015968b", size = 11781, upload-time = "2025-12-19T09:07:39.943Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e2/77/6542209906892a89ebc025610d404463f9fcc015915b97cc04fb62d2e352/silik_kernel-1.6.4.tar.gz", hash = "sha256:aa97bd3032e54170d16b7bb6a7b837ab84887ec3263828595b24b4b989f748b3", size = 28317, upload-time = "2026-03-17T08:17:57.756Z" }
 
 [[package]]
 name = "silik-messaging"
@@ -706,7 +707,7 @@ requires-dist = [
     { name = "pydantic-extra-types", specifier = ">=2.10.6" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.32.5" },
-    { name = "silik-kernel", specifier = ">=1.2.2" },
+    { name = "silik-kernel", specifier = ">=1.6.4" },
 ]
 
 [[package]]
@@ -731,6 +732,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521, upload-time = "2023-09-30T13:58:03.53Z" },
 ]
+
+[[package]]
+name = "statikomand"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/0c/94256e4c85966e12b18d7e8134a332ab884d23d978606ea04f44d21abf90/statikomand-0.1.1.tar.gz", hash = "sha256:224a46be7efd13a2caafabc3db841ede21927f81fa20099bd37a362a17dd3d40", size = 6835, upload-time = "2026-02-26T14:36:26.128Z" }
 
 [[package]]
 name = "tornado"

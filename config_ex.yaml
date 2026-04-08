@@ -1,0 +1,8 @@
+api_url: http://localhost:8080/
+harvest_delay: .5
+logging_level: DEBUG
+whitelist:
+  - name: username_in_signal
+    uuid: uuid_in_signal
+    phone_number: optional_if_uuid_set_else_mandatory
+    kernel_name: kernel_to_assign_to_this_user

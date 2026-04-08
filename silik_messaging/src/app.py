@@ -1,20 +1,25 @@
-import re
 from pydantic import BaseModel, Field
 import queue
-import time
+import random
 from typing import Annotated
 from .utils import (
     config,
     SilikSignalConfig,
     get_logger,
 )
-from jupyter_client.manager import KernelManager
-
+from jupyter_client.manager import AsyncKernelManager
+import asyncio
 from .signal_connector import (
     SignalChat,
     SignalConnector,
     SignalMessageCollection,
+    SignalMessage,
+    SignalContact,
 )
+
+
+class TerminateTaskGroup(Exception): ...
+
 
 logger = get_logger(__name__)
 
@@ -24,7 +29,7 @@ class SilikMessagingApp:
     Application that interfaces the Signal REST API with a jupyter kernel,
     in order to use tools _via_ Signal.
 
-    Each whitelisted phone number is assigned a SilicConversation,
+    Each whitelisted phone number is assigned a SilikConversation,
     which processes the messages. Each conversation has its own
     kernel.
     """
@@ -35,40 +40,65 @@ class SilikMessagingApp:
         signal_database: SignalMessageCollection,
         config: SilikSignalConfig,
     ):
-        self.signal = signal_connector
+        self.signal_connector = signal_connector
         self.db = signal_database
         self.config = config
-
-        self.silic_conversations = {
-            contact.uuid: SilikConversation(signal_chat=self.db.all_chats[contact.uuid])
+        self.silik_conversations = [
+            SilikConversation(
+                signal_chat=self.db.all_chats[contact.uuid],
+                user=contact,
+                signal_connector=self.signal_connector,
+                kernel_name=config.get_user_from_id(contact.uuid).kernel_name,
+            )
             for contact in self.db.contacts
-        }
+        ]
 
     async def run(self):
         """
         Runs the application :
             - harvest the messages,
             - assign each message to a SignalChat,
-            - call pipeline method of each SilicConversation
-            - sends the answer of the pipeline
+            - call pipeline method of each SilikConversation
         """
-        while True:
-            last_messages = self.db.harvest_and_distribute()
-            if last_messages is None:
-                time.sleep(config.harvest_delay)
-                continue
-            for user_uuid, each_silic_conv in self.silic_conversations.items():
-                answer = each_silic_conv.pipeline()
-                if answer is None:
-                    logger.debug("No answer provided, not sending.")
+        try:
+            for each_conversation in self.silik_conversations:
+                await each_conversation.start_kernel()
+
+            while True:
+                last_messages = self.db.harvest_and_distribute()
+                if last_messages is None:
+                    await asyncio.sleep(config.harvest_delay)
                     continue
-                logger.info("Sending answer")
-                if user_uuid not in self.config.whitelist:
-                    logger.warning(
-                        "User with uuid %s is not in whitelist, but a message was nearly sent to him. This could be explained by the fact that his number is whitelisted but not its uuid. Please check this user.",
-                        user_uuid,
-                    )
-                self.signal.send_message_to_one_user(answer, user_uuid)
+                await self.all_pipelines()
+
+        except asyncio.CancelledError:
+            logger.info("Cancelling main task. Shutting down kernels.")
+            await self.graceful_shutdown()
+            raise
+        except Exception as e:
+            logger.warning(f"Exception during main loop : {e}")
+            await self.graceful_shutdown()
+        finally:
+            logger.info("Closing the application")
+
+    async def all_pipelines(self):
+        try:
+            async with asyncio.TaskGroup() as tg:
+                # sending all user requests to pipelines
+                for each_silic_conv in self.silik_conversations:
+                    tg.create_task(each_silic_conv.pipeline())
+        except* Exception:
+            logger.info("Catched all exceptions of all pipelines. Starting a new loop.")
+
+    async def graceful_shutdown(self):
+        """
+        Shutdown each kernel of each conversation.
+        """
+        for each_silic_conv in self.silik_conversations:
+            await each_silic_conv.km.shutdown_kernel()
+            logger.info(
+                f"Kernel for `{each_silic_conv.user.uuid}` was successfully shutdown"
+            )
 
 
 class ParsedUserRequest(BaseModel):
@@ -94,61 +124,50 @@ class SilikConversation:
     Main object, interfaces between the SignalChat objects (list of messages)
     and a jupyter kernel.
 
-    Each number in the config whitelist has a SilicConversation attached to it, and
+    Each number in the config whitelist has a SilikConversation attached to it, and
     hence its own KernelManager.
     """
 
     def __init__(
         self,
         signal_chat: SignalChat,
+        user: SignalContact,
+        signal_connector: SignalConnector,
+        kernel_name: str,
     ):
         r"""
         Parameters:
         ---
             - signal_chat: stores signal chat messages
         """
+        try:
+            config.get_user_from_id(user.uuid)
+        except KeyError:
+            raise ValueError(
+                f"User with uuid : `{user.uuid}` is not in the whitelist. Hence, no SilikConversation should be created for this user."
+            )
+
         self.signal_chat = signal_chat
-        self.km = KernelManager(kernel_name=config.kernel_name)
-        self.km.start_kernel()
+        self.signal_connector = signal_connector
+        self.user = user
+        self.km: AsyncKernelManager = AsyncKernelManager(kernel_name=config.kernel_name)
+        self.message_buffer: list[
+            SignalMessage
+        ] = []  # buffer used to store message, waiting that they are treated by the kernel
 
-        # km.shutdown_kernel()
+    async def start_kernel(self):
+        await self.km.start_kernel()
+        logger.info(f"Started kernel for user `{self.user.uuid}`")
 
-    def parse_user_request(self, input_string: str) -> ParsedUserRequest | None:
-        r"""
-        _Partially generated with duck.ai - GPT-4o mini_
-
-        Parses the raw text of the message to find a command.
-            - command starts with / (e.g. /start, /help)
-
-        Parameters :
-        ---
-            - input_string: a string containing the question
-
-        Returns :
-        ---
-            - a ParsedUserRequest object, or None if request could not be parsed
+    async def run_code_on_kernel(self, code) -> str:
         """
-        # Matches commands starting with "/" at the beginning
-        command_pattern = r"^(/[^ ]+)"
-        command_match = re.match(command_pattern, input_string)
-        if not command_match:
-            return
-        command = command_match.group(0)
-        code = input_string[len(command) :].strip()  # Update remaining string
-        return ParsedUserRequest(
-            command=command[1:],
-            code=code,
-        )
-
-    def exec_in_kernel(self, code) -> str:
-        """
-        Runs code in a kernel.
+        Runs code in a kernel, and returns the output
         """
         kc = self.km.client()
         kc.start_channels()
 
         # Always wait for readiness
-        kc.wait_for_ready(timeout=10)
+        await kc.wait_for_ready(timeout=10)
 
         # Execute code
         msg_id = kc.execute(code)
@@ -157,8 +176,9 @@ class SilikConversation:
         result = ""
         while True:
             try:
-                msg = kc.get_iopub_msg(timeout=5)
+                msg = await kc.get_iopub_msg(timeout=5)
             except queue.Empty:
+                logger.debug("Could not get IOPub MSG")
                 break
 
             if msg["parent_header"].get("msg_id") != msg_id:
@@ -175,11 +195,16 @@ class SilikConversation:
             elif msg_type == "status" and msg["content"]["execution_state"] == "idle":
                 break
 
-        # Clean shutdown
         kc.stop_channels()
         return result
 
-    def pipeline(self):
+    def send_msg_to_user(self, msg: str):
+        """
+        Sends a message to the user
+        """
+        self.signal_connector.send_message_to_one_user(msg, self.user.uuid)
+
+    async def pipeline(self):
         """
         Process the last message of the signal_chat object if not in chat,
         else continue the conversation.
@@ -192,18 +217,26 @@ class SilikConversation:
             if len(self.signal_chat.messages) == 0:
                 return
 
-            last_message = self.signal_chat.messages[-1]
-            if last_message.is_answered:
-                return
+            # fill the message buffer
+            for each_message in self.signal_chat.messages:
+                if each_message.is_answered:
+                    continue
+                if each_message in self.message_buffer:
+                    continue
+                self.message_buffer.append(each_message)
 
-            last_message.is_answered = True
-            question = self.signal_chat.messages[-1].message
-            answer = self.exec_in_kernel(code=question)
-            return answer
-
+            # answer all messages from the buffer
+            for each_message in self.message_buffer:
+                if each_message.is_answered:
+                    # should not happened, but in case
+                    return
+                each_message.is_answered = True
+                answer = await self.run_code_on_kernel(code=each_message.message)
+                self.send_msg_to_user(answer)
+                logger.info(f"Sent message {answer} to user {self.user.uuid}")
         except Exception as e:
             error = (
                 f"Could not deal with message because an **error** occurred : \n'{e}'"
             )
             logger.warning(error)
-            return error
+            self.send_msg_to_user(error)
