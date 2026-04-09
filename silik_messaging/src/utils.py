@@ -5,9 +5,10 @@ from pydantic import (
     ValidationError,
     field_validator,
     model_validator,
+    Field,
 )
 from pydantic_extra_types.phone_numbers import PhoneNumber, PhoneNumberValidator
-from typing import Literal, Union, Optional, Self
+from typing import Literal, Union, Optional, Self, List
 from typing_extensions import Annotated
 import yaml
 from uuid import UUID
@@ -35,10 +36,33 @@ E164NumberType = Annotated[
 
 
 class SilikUserConfig(BaseModel):
-    name: str
-    kernel_name: str = "silik"
-    uuid: Optional[UUID] = None
-    phone_number: Optional[E164NumberType] = None
+    name: Annotated[
+        Optional[str], Field(description="Optional username. Used only for Silik.")
+    ] = ""
+    kernel_name: Annotated[
+        Optional[str],
+        Field(
+            description="Name of the kernel to start for this user. See kernel_connection_file for connecting an existing kernel."
+        ),
+    ] = None
+    kernel_connection_file: Annotated[
+        Optional[str],
+        Field(
+            description="Specify this to connect to an existing kernel. Must be the path to the kernel connection file. See https://jupyter-client.readthedocs.io/en/stable/kernels.html#connection-files"
+        ),
+    ] = None
+    uuid: Annotated[
+        Optional[UUID],
+        Field(
+            description="The uuidv4 of the signal user. Either this or the phone number must be specified."
+        ),
+    ] = None
+    phone_number: Annotated[
+        Optional[E164NumberType],
+        Field(
+            description="Phone number of the user. Can be replaced by uuid, but one of the two must be specified."
+        ),
+    ] = None
 
     @model_validator(mode="after")
     def check_uuid_or_phone(self) -> Self:
@@ -50,22 +74,24 @@ class SilikUserConfig(BaseModel):
 
 
 class SilikSignalConfig(BaseModel):
-    api_url: HttpUrl
-    harvest_delay: float
-    whitelist: list[SilikUserConfig]
-    kernel_name: str = "silik"
-    logging_level: Literal[
-        "NOTSET", "DEBUG", "INFO", "WARN", "WARNING", "ERROR", "CRITICAL", "FATAL"
+    api_url: Annotated[HttpUrl, Field(description="URL towards the signal REST API")]
+    harvest_delay: Annotated[
+        float,
+        Field(
+            description="Number of seconds between each harvest of the Signal Messages"
+        ),
     ]
-
-    @field_validator("whitelist", mode="before")
-    @classmethod
-    def whitelist_check(cls, whitelist: list | None):
-        if whitelist is None:
-            whitelist = []
-        if not isinstance(whitelist, list):
-            raise ValidationError("Config whitelist must be a list")
-        return whitelist
+    whitelist: Annotated[
+        List[SilikUserConfig], Field(description="The list of users whitelisted.")
+    ]
+    logging_level: Annotated[
+        Literal[
+            "NOTSET", "DEBUG", "INFO", "WARN", "WARNING", "ERROR", "CRITICAL", "FATAL"
+        ],
+        Field(
+            description="Logging level for the application", default_factory=lambda: []
+        ),
+    ]
 
     def get_user_from_id(self, uid) -> SilikUserConfig:
         for each_user in self.whitelist:

@@ -213,6 +213,7 @@ class SignalConnector:
     def __init__(self, url=SIGNAL_URL):
         self.base_url = url
         self.account_phone_number = self.init_phone_number()
+        logger.info(f"Account phone number : {self.account_phone_number}")
         self.messages = []
 
     def init_phone_number(self):
@@ -339,6 +340,34 @@ class SignalConnector:
 
     def send_message_to_group(self, message, group):
         raise NotImplementedError("Will be implemented soon")
+
+    def send_show_typing_indicator(self, user_id):
+        body = {
+            "recipient": str(user_id),
+        }
+        url = os.path.join(
+            self.base_url, "v1/typing-indicator", self.account_phone_number
+        )
+        logger.debug("Signal url %s", url)
+        res = requests.put(url=url, json=body)
+        if res:
+            logger.info("Send message to %s", user_id)
+        else:
+            logger.info("Failed to send message to %s : `%s`", user_id, res.content)
+
+    def send_stop_typing_indicator(self, user_id):
+        body = {
+            "recipient": str(user_id),
+        }
+        url = os.path.join(
+            self.base_url, "v1/typing-indicator", self.account_phone_number
+        )
+        logger.debug("Signal url %s", url)
+        res = requests.delete(url=url, json=body)
+        if res:
+            logger.info("Send message to %s", user_id)
+        else:
+            logger.info("Failed to send message to %s : `%s`", user_id, res.content)
 
 
 class SignalMessageCollection:
