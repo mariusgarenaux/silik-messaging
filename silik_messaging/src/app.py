@@ -141,6 +141,7 @@ class SilikConversation:
         self.config = user_config
         self.kernel_connection_file = self.config.kernel_connection_file
         self.kernel_name = self.config.kernel_name
+        self.need_user_input = False
 
         if self.kernel_connection_file is None:
             self.km: AsyncKernelManager = AsyncKernelManager(
@@ -182,7 +183,7 @@ class SilikConversation:
         kc.start_channels()
 
         # Execute code
-        msg_id = kc.execute(code)
+        current_msg_id = kc.execute(code)
 
         # Collect outputs
         result = ""
@@ -201,13 +202,13 @@ class SilikConversation:
             if stdin_msg is not None:
                 logger.debug(f"Message from stdin : {stdin_msg}.")
                 self._allow_stdin = True
-                # stdin_msg["content"]["prompt"]
-                # TODO : implement input with user validation
-                input_reply = kc.session.msg("input_reply", {"value": "out"})
-                kc.stdin_channel.send(input_reply)
+                # out = await self.ask_user_input(stdin_msg["content"]["prompt"])
+                # # TODO : implement input with user validation
+                # input_reply = kc.session.msg("input_reply", {"value": out})
+                # kc.stdin_channel.send(input_reply)
                 continue
 
-            if msg["parent_header"].get("msg_id") != msg_id:
+            if msg["parent_header"].get("msg_id") != current_msg_id:
                 continue
 
             msg_type = msg["header"]["msg_type"]

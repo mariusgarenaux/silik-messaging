@@ -2,8 +2,6 @@ import logging
 from pydantic import (
     BaseModel,
     HttpUrl,
-    ValidationError,
-    field_validator,
     model_validator,
     Field,
 )
@@ -42,13 +40,13 @@ class SilikUserConfig(BaseModel):
     kernel_name: Annotated[
         Optional[str],
         Field(
-            description="Name of the kernel to start for this user. See kernel_connection_file for connecting an existing kernel."
+            description="Name of the kernel to start for this user. See kernel_connection_file for connecting an existing kernel. Run `jupyter kernelspec list` for the list of kernels available on your machine."
         ),
     ] = None
     kernel_connection_file: Annotated[
         Optional[str],
         Field(
-            description="Specify this to connect to an existing kernel. Must be the path to the kernel connection file. See https://jupyter-client.readthedocs.io/en/stable/kernels.html#connection-files"
+            description="Specify this to connect to an existing kernel. Must be the path to the kernel connection file. See https://jupyter-client.readthedocs.io/en/stable/kernels.html#connection-files. Run `jupyter --runtime-dir` to see where connection files are stored on your machine. You can also run a kernel with jupyter console, and specify where its connection file is stored with command : `jupyter console --ConnectionFileMixin.connection_file ./kernel_connection_file_test.json`"
         ),
     ] = None
     uuid: Annotated[
@@ -139,3 +137,11 @@ def get_logger(name) -> logging.Logger:
     logger.setLevel(config.logging_level)
     logger.propagate = False
     return logger
+
+
+if __name__ == "__main__":
+    import json
+
+    json_schema = SilikSignalConfig.model_json_schema()
+    with open("config_scheme.json", "wt") as f:
+        json.dump(json_schema, f)

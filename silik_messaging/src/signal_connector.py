@@ -159,7 +159,7 @@ class SignalContact(BaseModel):
 
 class SignalMessage:
     """
-    Shortcut towards signal message model object. Ensure
+    Wrapper arround signal message model object. Ensure
     this is a message that needs to be treated :
         - data message or message from yourself
     """

@@ -1,8 +1,10 @@
 api_url: http://localhost:8080/
 harvest_delay: .5
-logging_level: DEBUG
+logging_level: INFO
 whitelist:
-  - name: username_in_signal
-    uuid: uuid_in_signal
-    phone_number: optional_if_uuid_set_else_mandatory
-    kernel_name: kernel_to_assign_to_this_user
+  - name: user
+    uuid: uuid
+    phone_number: "+..."
+    kernel_name: "run `jupyter kernelspec list` to get the full list of kernels that can be started"
+    kernel_connection_file: "run `jupyter --runtime-dir` to see all connection files, i.e. of probably running kernels"
+  

@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "SilikUserConfig": {
+      "properties": {
+        "name": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": "",
+          "description": "Optional username. Used only for Silik.",
+          "title": "Name"
+        },
+        "kernel_name": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "Name of the kernel to start for this user. See kernel_connection_file for connecting an existing kernel. Run `jupyter kernelspec list` for the list of kernels available on your machine.",
+          "title": "Kernel Name"
+        },
+        "kernel_connection_file": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "Specify this to connect to an existing kernel. Must be the path to the kernel connection file. See https://jupyter-client.readthedocs.io/en/stable/kernels.html#connection-files. Run `jupyter --runtime-dir` to see where connection files are stored on your machine. You can also run a kernel with jupyter console, and specify where its connection file is stored with command : `jupyter console --ConnectionFileMixin.connection_file ./kernel_connection_file_test.json`",
+          "title": "Kernel Connection File"
+        },
+        "uuid": {
+          "anyOf": [{ "format": "uuid", "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "The uuidv4 of the signal user. Either this or the phone number must be specified.",
+          "title": "Uuid"
+        },
+        "phone_number": {
+          "anyOf": [
+            { "format": "phone", "type": "string" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Phone number of the user. Can be replaced by uuid, but one of the two must be specified.",
+          "title": "Phone Number"
+        }
+      },
+      "title": "SilikUserConfig",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "api_url": {
+      "description": "URL towards the signal REST API",
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Api Url",
+      "type": "string"
+    },
+    "harvest_delay": {
+      "description": "Number of seconds between each harvest of the Signal Messages",
+      "title": "Harvest Delay",
+      "type": "number"
+    },
+    "whitelist": {
+      "description": "The list of users whitelisted.",
+      "items": { "$ref": "#/$defs/SilikUserConfig" },
+      "title": "Whitelist",
+      "type": "array"
+    },
+    "logging_level": {
+      "description": "Logging level for the application",
+      "enum": [
+        "NOTSET",
+        "DEBUG",
+        "INFO",
+        "WARN",
+        "WARNING",
+        "ERROR",
+        "CRITICAL",
+        "FATAL"
+      ],
+      "title": "Logging Level",
+      "type": "string"
+    }
+  },
+  "required": ["api_url", "harvest_delay", "whitelist"],
+  "title": "SilikSignalConfig",
+  "type": "object"
+}
